@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw the Letter!</title>
+    <style>
+        body {
+            background-color: #1a1a2e;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 { margin-bottom: 5px; color: #00fff0; font-size: 1.8rem; }
+        .subtitle { color: #8a8a8a; margin-bottom: 20px; font-size: 1rem; }
+        .canvas-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            background: #161625;
+            border: 4px solid #00fff0;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 255, 240, 0.2);
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border-radius: 11px;
+            cursor: crosshair;
+        }
+        .letter-guide {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            line-height: 300px;
+            font-size: 240px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.05);
+            user-select: none;
+            font-family: Arial, sans-serif;
+        }
+        .controls { margin-top: 20px; display: flex; gap: 15px; }
+        .btn {
+            background: transparent;
+            color: #00fff0;
+            border: 2px solid #00fff0;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #00fff0; color: #1a1a2e; }
+        .btn-check { border-color: #ff007f; color: #ff007f; }
+        .btn-check:hover { background: #ff007f; color: #ffffff; }
+        .feedback {
+            margin-top: 15px;
+            font-size: 4rem;
+            height: 80px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Listen & Draw</h1>
+    <div class="subtitle">Draw an authentic "B". Shortcuts or other letters will fail!</div>
+
+    <div class="canvas-container">
+        <div class="letter-guide">B</div>
+        <canvas id="paintCanvas" width="300" height="300"></canvas>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="speakLetter()">🔊 Hear Letter</button>
+        <button class="btn" onclick="clearCanvas()">🔄 Clear</button>
+        <button class="btn btn-check" onclick="checkDrawing()">✅ Check Design</button>
+    </div>
+
+    <div id="feedback" class="feedback"></div>
+
+    <script>
+        const canvas = document.getElementById('paintCanvas');
+        const ctx = canvas.getContext('2d');
+        const feedbackDiv = document.getElementById('feedback');
+        let isDrawing = false;
+
+        ctx.strokeStyle = '#00fff0';
+        ctx.lineWidth = 14; 
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true; draw(e); });
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', () => { isDrawing = false; ctx.beginPath(); });
+        canvas.addEventListener('mouseleave', () => { isDrawing = false; ctx.beginPath(); });
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            feedbackDiv.innerText = '';
+        }
+
+        function speakLetter() {
+            const utterance = new SpeechSynthesisUtterance('B');
+            utterance.rate = 0.8;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(result) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (result === 'yaaaa') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            } else if (result === 'ooooo') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+            }
+        }
+
+        function checkDrawing() {
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // 1. Expanded POSITIVE Checkpoints (Must hit these to prove it's a B)
+            const positivePoints = [
+                {x: 100, y: 50, hit: false},  // Top Spine
+                {x: 100, y: 110, hit: false}, // Upper Mid Spine
+                {x: 100, y: 150, hit: false}, // True Center Spine
+                {x: 100, y: 200, hit: false}, // Lower Mid Spine
+                {x: 100, y: 250, hit: false}, // Bottom Spine
+                {x: 150, y: 45, hit: false},  // Top bar
+                {x: 200, y: 75, hit: false},  // Top loop outer curve
+                {x: 160, y: 145, hit: false}, // Middle loop bar separator
+                {x: 205, y: 205, hit: false}, // Bottom loop outer curve
+                {x: 155, y: 255, hit: false}  // Bottom bar
+            ];
+
+            // 2. NEW: NEGATIVE Checkpoints (The holes inside the B. Drawing here fails instantly!)
+            const negativePoints = [
+                {x: 145, y: 95},  // Inside top loop hole
+                {x: 145, y: 200}  // Inside bottom loop hole
+            ];
+
+            let totalPainted = 0;
+            let strikeCount = 0;
+
+            for (let i = 3; i < imgData.data.length; i += 4) {
+                if (imgData.data[i] > 0) { 
+                    totalPainted++;
+                    const pixelIndex = (i - 3) / 4;
+                    const x = pixelIndex % canvas.width;
+                    const y = Math.floor(pixelIndex / canvas.width);
+
+                    // Verify positive strokes
+                    positivePoints.forEach(pt => {
+                        const dist = Math.sqrt((x - pt.x)**2 + (y - pt.y)**2);
+                        if (dist < 20) pt.hit = true; 
+                    });
+
+                    // Catch illegal strokes in the empty spaces (stops letters like C, O, or full boxes)
+                    negativePoints.forEach(pt => {
+                        const dist = Math.sqrt((x - pt.x)**2 + (y - pt.y)**2);
+                        if (dist < 15) strikeCount++; 
+                    });
+                }
+            }
+
+            const uniqueHits = positivePoints.filter(pt => pt.hit).length;
+            
+            // Winning conditions: 
+            // 1. Clear at least 80% of the correct shape landmarks.
+            // 2. Drew a reasonable volume of strokes.
+            // 3. Almost ZERO strokes entered the negative void holes (strikes < 35 pixels).
+            if (uniqueHits >= 8 && totalPainted > 1200 && strikeCount < 35) {
+                feedbackDiv.innerText = '👍';
+                playSound('yaaaa');
+            } else {
+                feedbackDiv.innerText = '👎';
+                playSound('ooooo');
+            }
+        }
+    </script>
+</body>
+</html>
